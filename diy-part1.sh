@@ -13,7 +13,9 @@
 #sed -i 's/KERNEL_PATCHVER:=5.15/KERNEL_PATCHVER:=5.10/g' ./target/linux/x86/Makefile
 
 # 添加ssrp
-echo 'src-git helloworld https://github.com/fw876/helloworld' >> feeds.conf.default
+#echo 'src-git helloworld https://github.com/fw876/helloworld' >> feeds.conf.default
+rm -rf package/helloworld
+git clone -b main --depth=1 https://github.com/fw876/helloworld.git package/helloworld
 
 # 替换argon
 git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
