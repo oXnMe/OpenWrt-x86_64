@@ -23,7 +23,7 @@ svn co https://github.com/openwrt/packages/trunk/utils/watchcat feeds/packages/u
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
 # 添加自定义源
-echo 'src/gz openwrt_kiddin9 https://dl.openwrt.ai/23.05/packages/x86_64' >> package/system/opkg/files/customfeeds.conf
+echo 'src/gz openwrt_kiddin9 https://dl.openwrt.ai/latest/packages/x86_64/kiddin9' >> package/system/opkg/files/customfeeds.conf
 
 # 修改网络设置
 sed -i 's/192.168.1.1/192.168.123.1/g' package/base-files/files/bin/config_generate
