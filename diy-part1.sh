@@ -29,7 +29,10 @@ git clone -b openwrt-18.06 https://github.com/tty228/luci-app-wechatpush.git pac
 git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 
 # 添加ddns-go
-git clone https://github.com/sirpdboy/luci-app-ddns-go.git package/ddns-go
+# git clone https://github.com/sirpdboy/luci-app-ddns-go.git package/ddns-go
+
+# 添加lucky
+git clone  https://github.com/gdy666/luci-app-lucky.git package/lucky
 
 # 添加watchcat-plus
 git clone https://github.com/gngpp/luci-app-watchcat-plus.git package/luci-app-watchcat-plus
