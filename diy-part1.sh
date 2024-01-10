@@ -35,6 +35,8 @@ git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 git clone https://github.com/gdy666/luci-app-lucky.git package/lucky
 
 # 添加watchcat-plus
+rm -rf feeds/packages/utils/watchcat
+svn co https://github.com/openwrt/packages/trunk/utils/watchcat feeds/packages/utils/watchcat
 git clone https://github.com/gngpp/luci-app-watchcat-plus.git package/luci-app-watchcat-plus
 
 # 添加ap-modem
