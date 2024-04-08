@@ -32,6 +32,7 @@ env:
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
+  CGO_ENABLED: 1
 
 jobs:
   build:
