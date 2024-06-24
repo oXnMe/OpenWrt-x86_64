@@ -19,6 +19,13 @@ rm -rf feeds/luci/applications/luci-app-serverchan
 rm -rf feeds/packages/utils/watchcat
 svn co https://github.com/openwrt/packages/trunk/utils/watchcat feeds/packages/utils/watchcat
 
+# 替换uugamebooster
+rm -rf feeds/packages/net/uugamebooster
+cp -rf $GITHUB_WORKSPACE/uugamebooster feeds/packages/net/uugamebooster
+pushd feeds/packages/net/uugamebooster
+/bin/bash ./update_makefile.sh
+popd
+
 # 修改默认主题
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
