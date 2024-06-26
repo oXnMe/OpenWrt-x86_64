@@ -43,8 +43,8 @@ ifeq ($(ARCH),x86_64)
 	PKG_MD5SUM:=PLACEHOLDER_MD5SUM_X86
 endif
 
-PKG_SOURCE_URL:=https://uu.gdl.netease.com/uuplugin/openwrt-$(UU_ARCH)/$(PKG_VERSION)/uu.tar.gz?
-PKG_SOURCE:=$(PKG_NAME)-$(UU_ARCH)-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=https://uu.gdl.netease.com/uuplugin/openwrt-$(UU_ARCH)/$(PKG_VERSION)/
+PKG_SOURCE:=uu.tar.gz
 
 STRIP:=true
 
