@@ -14,9 +14,12 @@
 
 # 添加ssrp
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >> feeds.conf.default
+rm -rf feeds/packages/net/{xray-core,v2ray-core,v2ray-geodata,sing-box}
 rm -rf package/helloworld
+rm -rf feeds/packages/lang/golang
+git clone https://github.com/sbwml/packages_lang_golang -b 23.x feeds/packages/lang/golang
 git clone -b main --depth=1 https://github.com/fw876/helloworld.git package/helloworld
-sed -i '/define Package\/mosdns\/install/i GO_PKG_TARGET_VARS:=$(filter-out CGO_ENABLED=%,$(GO_PKG_TARGET_VARS)) CGO_ENABLED=1\n' package/helloworld/mosdns/Makefile
+#sed -i '/define Package\/mosdns\/install/i GO_PKG_TARGET_VARS:=$(filter-out CGO_ENABLED=%,$(GO_PKG_TARGET_VARS)) CGO_ENABLED=1\n' package/helloworld/mosdns/Makefile
 
 # 替换argon
 git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
