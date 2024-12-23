@@ -41,10 +41,14 @@ git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 git clone https://github.com/gdy666/luci-app-lucky.git package/lucky
 
 # 添加watchcat-plus
-git clone https://github.com/openwrt/packages
-mv packages/utils/watchcat package/utils
-rm -rf packages
-git clone https://github.com/gngpp/luci-app-watchcat-plus.git package/luci-app-watchcat-plus
+#git clone https://github.com/openwrt/packages
+#mv packages/utils/watchcat package/utils
+#rm -rf packages
+#git clone https://github.com/gngpp/luci-app-watchcat-plus.git package/luci-app-watchcat-plus
+git clone https://github.com/sirpdboy/sirpdboy-package
+mv sirpdboy-package/watchcat package/utils
+mv sirpdboy-package/luci-app-watchcat-plus package
+rm -rf sirpdboy-package
 
 # 添加ap-modem
 # svn export https://github.com/linkease/openwrt-app-actions/trunk/applications/luci-app-ap-modem package/luci-app-ap-modem
