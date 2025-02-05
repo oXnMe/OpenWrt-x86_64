@@ -16,8 +16,8 @@ rm -rf feeds/luci/themes/luci-theme-argon-mod
 rm -rf feeds/luci/applications/luci-app-serverchan
 
 # 替换watchcat
-rm -rf feeds/packages/utils/watchcat
-svn co https://github.com/openwrt/packages/trunk/utils/watchcat feeds/packages/utils/watchcat
+#rm -rf feeds/packages/utils/watchcat
+#svn co https://github.com/openwrt/packages/trunk/utils/watchcat feeds/packages/utils/watchcat
 
 # 替换uugamebooster
 pushd $GITHUB_WORKSPACE/uugamebooster
