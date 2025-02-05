@@ -45,6 +45,7 @@ git clone https://github.com/gdy666/luci-app-lucky.git package/lucky
 #mv packages/utils/watchcat package/utils
 #rm -rf packages
 #git clone https://github.com/gngpp/luci-app-watchcat-plus.git package/luci-app-watchcat-plus
+rm -rf feeds/packages/utils/watchcat
 git clone https://github.com/sirpdboy/sirpdboy-package
 mv sirpdboy-package/watchcat package/utils
 mv sirpdboy-package/luci-app-watchcat-plus package
