@@ -13,15 +13,12 @@
 #sed -i 's/KERNEL_PATCHVER:=5.15/KERNEL_PATCHVER:=5.10/g' ./target/linux/x86/Makefile
 
 # 添加ssrp
-#echo 'src-git helloworld https://github.com/fw876/helloworld' >> feeds.conf.default
-#rm -rf feeds/packages/net/{xray-core,v2ray-core,v2ray-geodata,sing-box}
 rm -rf package/helloworld
-#git clone https://github.com/sbwml/openwrt_helloworld package/helloworld
-git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/helloworld
-#git clone -b main --depth=1 https://github.com/fw876/helloworld.git package/helloworld
-#rm -rf feeds/packages/lang/golang
-#git clone https://github.com/sbwml/packages_lang_golang -b 23.x feeds/packages/lang/golang
-#sed -i '/define Package\/mosdns\/install/i GO_PKG_TARGET_VARS:=$(filter-out CGO_ENABLED=%,$(GO_PKG_TARGET_VARS)) CGO_ENABLED=1\n' package/helloworld/mosdns/Makefile
+git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/luci-app-ssr-plus=
+
+# 添加passwall2
+git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall-packages package/openwrt-passwall#
+git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall2 package/luci-app-passwall2
 
 # 替换argon
 git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
@@ -34,32 +31,18 @@ git clone -b openwrt-18.06 https://github.com/tty228/luci-app-wechatpush.git pac
 # 添加oaf
 git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 
-# 添加ddns-go
-# git clone https://github.com/sirpdboy/luci-app-ddns-go.git package/ddns-go
-
 # 添加lucky
 git clone https://github.com/gdy666/luci-app-lucky.git package/lucky
 
-# 添加watchcat-plus
-#git clone https://github.com/openwrt/packages
-#mv packages/utils/watchcat package/utils
-#rm -rf packages
-#git clone https://github.com/gngpp/luci-app-watchcat-plus.git package/luci-app-watchcat-plus
-rm -rf feeds/packages/utils/watchcat
-git clone https://github.com/sirpdboy/sirpdboy-package
-mv sirpdboy-package/watchcat package/utils
-mv sirpdboy-package/luci-app-watchcat-plus package
-rm -rf sirpdboy-package
-
-# 添加ap-modem
-# svn export https://github.com/linkease/openwrt-app-actions/trunk/applications/luci-app-ap-modem package/luci-app-ap-modem
-
 # iStore
-# svn export https://github.com/linkease/istore-ui/trunk/app-store-ui package/app-store-ui
-# svn export https://github.com/linkease/istore/trunk/luci package/luci-app-store
+#echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
+git clone https://github.com/linkease/istore-ui
+mv istore-ui/app-store-ui package
+git clone https://github.com/linkease/istore
+mv istore/luci/* package
+rm -rf istore istore-ui
 
 # 在线用户
-# svn export https://github.com/haiibo/packages/trunk/luci-app-onliner package/luci-app-onliner
 git clone https://github.com/haiibo/packages
 mv packages/luci-app-onliner package
 rm -rf packages
