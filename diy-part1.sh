@@ -17,8 +17,7 @@ rm -rf package/helloworld
 git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/luci-app-ssr-plus
 
 # 添加passwall2
-git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall-packages package/openwrt-passwall
-git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall2 package/luci-app-passwall2
+git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall2 package/luci-app-passwall2
 
 # 替换argon
 git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
