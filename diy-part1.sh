@@ -25,7 +25,7 @@ git clone https://github.com/jerrykuku/luci-app-argon-config.git package/luci-ap
 cp -f $GITHUB_WORKSPACE/images/bg1.jpg package/luci-theme-argon/htdocs/luci-static/argon/img/bg1.jpg
 
 # 替换serverchan
-git clone https://github.com/tty228/luci-app-wechatpush.git package/luci-app-serverchan
+git clone https://github.com/tty228/luci-app-wechatpush.git package/luci-app-wechatpush
 
 # 添加oaf
 git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
