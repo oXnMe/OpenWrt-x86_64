@@ -13,8 +13,8 @@
 #sed -i 's/KERNEL_PATCHVER:=5.15/KERNEL_PATCHVER:=5.10/g' ./target/linux/x86/Makefile
 
 # 添加ssrp
-rm -rf package/helloworld
-git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/luci-app-ssr-plus
+#rm -rf package/helloworld
+#git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/luci-app-ssr-plus
 
 # 添加passwall2
 git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall2 package/luci-app-passwall2
