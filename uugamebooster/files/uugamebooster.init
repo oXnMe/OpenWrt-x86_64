@@ -1,0 +1,43 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2021 ImmortalWrt.org
+#
+# Based on official UU Game Booster bootup script for OpenWrt.
+# The official install.sh creates S99uuplugin which starts
+# uuplugin_monitor.sh in the background. The monitor handles
+# downloading, extracting, starting, and auto-updating uuplugin.
+
+USE_PROCD=1
+START=99
+
+CONF="uugamebooster"
+MONITOR="/usr/sbin/uu/uuplugin_monitor.sh"
+
+start_service() {
+	config_load "$CONF"
+	local enabled
+	config_get_bool enabled "config" "enabled" "0"
+	[ "$enabled" -eq 1 ] || return 1
+
+	procd_open_instance "$CONF"
+	procd_set_param command /bin/sh "$MONITOR"
+	procd_set_param respawn
+	procd_close_instance
+}
+
+stop_service() {
+	# Kill uuplugin and xuplugin-guardian if still running
+	# (the monitor is killed by procd, but uuplugin is a child
+	# process that may survive as an orphan)
+	killall -9 uuplugin 2>/dev/null
+	killall -9 xuplugin-guardian 2>/dev/null
+	rm -rf /tmp/uu
+}
+
+reload_service() {
+	stop
+	start
+}
+
+service_triggers() {
+	procd_add_reload_trigger "$CONF"
+}

@@ -16,10 +16,11 @@ rm -rf feeds/luci/themes/luci-theme-argon-mod
 rm -rf feeds/luci/applications/luci-app-serverchan
 
 # 替换uugamebooster
-#pushd $GITHUB_WORKSPACE/uugamebooster
-#/bin/bash ./update_makefile.sh
-#popd
-#cp -f $GITHUB_WORKSPACE/uugamebooster/Makefile feeds/packages/net/uugamebooster/Makefile
+pushd $GITHUB_WORKSPACE/uugamebooster
+bash update_makefile.sh || echo "[uugamebooster] API unreachable, using hardcoded version in Makefile"
+popd
+rm -rf feeds/packages/net/uugamebooster
+cp -r $GITHUB_WORKSPACE/uugamebooster feeds/packages/net/uugamebooster
 
 # 修改默认主题
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile

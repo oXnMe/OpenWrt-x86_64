@@ -1,38 +1,64 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Update UU Game Booster version and hashes in Makefile.
+#
+# Usage: bash update.sh
+#
+# This script queries the official API for the latest plugin version,
+# downloads each architecture's tarball, computes SHA256 and MD5,
+# and updates the Makefile accordingly.
 
-# 定义架构
-ARCH=$(uname -m)
-case $ARCH in
-  arm*) UU_ARCH=arm ;;
-  aarch64) UU_ARCH=aarch64 ;;
-  mipsel) UU_ARCH=mipsel ;;
-  x86_64) UU_ARCH=x86_64 ;;
-  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-esac
+set -x
 
-# 获取最新版本和MD5
-latest_info=$(curl -L -s -k -H "Accept:text/plain" "http://router.uu.163.com/api/plugin?type=openwrt-x86_64")
-PKG_SOURCE_URL=$(echo $latest_info | cut -d, -f1)
-PKG_MD5SUM_X86=$(echo $latest_info | cut -d, -f2)
-PKG_VERSION=$(echo $PKG_SOURCE_URL | awk -F/ '{print $(NF-1)}')
-arm_info=$(curl -L -s -k -H "Accept:text/plain" "http://router.uu.163.com/api/plugin?type=openwrt-arm")
-PKG_MD5SUM_ARM=$(echo $arm_info | cut -d, -f2)
-aarch64_info=$(curl -L -s -k -H "Accept:text/plain" "http://router.uu.163.com/api/plugin?type=openwrt-aarch64")
-PKG_MD5SUM_AARCH64=$(echo $aarch64_info | cut -d, -f2)
-mipsel_info=$(curl -L -s -k -H "Accept:text/plain" "http://router.uu.163.com/api/plugin?type=openwrt-mipsel")
-PKG_MD5SUM_MIPSEL=$(echo $mipsel_info | cut -d, -f2)
+CURDIR="$(cd "$(dirname "$0")"; pwd)"
+MAKEFILE="$CURDIR/Makefile"
 
-# 更新Makefile
-MAKEFILE_PATH="Makefile"
-sed -i "s/PLACEHOLDER_VERSION/${PKG_VERSION}/g" $MAKEFILE_PATH
-sed -i "s/PLACEHOLDER_RELEASE/${PKG_VERSION}/g" $MAKEFILE_PATH
-sed -i "s/PLACEHOLDER_MD5SUM_X86/${PKG_MD5SUM_X86}/g" $MAKEFILE_PATH
-sed -i "s/PLACEHOLDER_MD5SUM_ARM/${PKG_MD5SUM_ARM}/g" $MAKEFILE_PATH
-sed -i "s/PLACEHOLDER_MD5SUM_AARCH64/${PKG_MD5SUM_AARCH64}/g" $MAKEFILE_PATH
-sed -i "s/PLACEHOLDER_MD5SUM_MIPSEL/${PKG_MD5SUM_MIPSEL}/g" $MAKEFILE_PATH
-#sed -i "s|PKG_VERSION:=.*|PKG_VERSION:=$PKG_VERSION|g" $MAKEFILE_PATH
-#sed -i "s|PKG_SOURCE_URL:=.*|PKG_SOURCE_URL:=$PKG_SOURCE_URL|g" $MAKEFILE_PATH
-#sed -i "s|PKG_MD5SUM:=.*|PKG_MD5SUM:=$PKG_MD5SUM|g" $MAKEFILE_PATH
-#sed -i "s|PKG_RELEASE:=.*|PKG_RELEASE:=$PKG_VERSION|g" $MAKEFILE_PATH
+# Get latest version from API (JSON format)
+VERSION="$(curl -fsSL "https://router.uu.163.com/api/plugin?type=openwrt-x86_64" | jq -r ".url" | grep -oP 'v\K\d+\.\d+\.\d+' | head -1)" || exit 1
+[ -z "$VERSION" ] && exit 1
 
-echo "Makefile updated with version $PKG_VERSION"
+PKG_VERSION="$(awk -F "PKG_VERSION:=" '{print $2}' "$MAKEFILE" | xargs)"
+[ "$PKG_VERSION" != "$VERSION" ] || { echo "Already up to date: $VERSION"; exit 0; }
+
+echo "Updating from $PKG_VERSION to $VERSION..."
+
+for ARCH in "aarch64" "arm" "mipsel" "x86_64"; do
+    FILE_INFO="$(curl -fsSL "https://router.uu.163.com/api/plugin?type=openwrt-$ARCH")"
+    FILE_MD5="$(echo "$FILE_INFO" | jq -r ".md5")"
+    FILE_VER="$(echo "$FILE_INFO" | jq -r ".url" | grep -oP 'v\K\d+\.\d+\.\d+' | head -1)"
+
+    if [ "$FILE_VER" != "$VERSION" ]; then
+        echo "Version mismatch for $ARCH. Expected: $VERSION, got: $FILE_VER."
+        exit 1
+    fi
+
+    # Download tarball to compute SHA256
+    TMPFILE="$(mktemp)"
+    curl -fsSL "http://uurouter.gdl.netease.com/uuplugin/openwrt-$ARCH/v$VERSION/uu.tar.gz" -o "$TMPFILE"
+
+    ACTUAL_MD5="$(md5sum "$TMPFILE" | awk '{print $1}')"
+    if [ "$ACTUAL_MD5" != "$FILE_MD5" ]; then
+        echo "MD5 mismatch for $ARCH. Expected: $FILE_MD5, got: $ACTUAL_MD5."
+        rm -f "$TMPFILE"
+        exit 1
+    fi
+
+    FILE_HASH="$(sha256sum "$TMPFILE" | awk '{print $1}')"
+    rm -f "$TMPFILE"
+
+    echo "$ARCH: sha256=$FILE_HASH md5=$FILE_MD5"
+
+    # Update PKG_HASH line for this arch
+    HASH_LINE="$(($(sed -n -e "/(\$(ARCH),$ARCH)/=" "$MAKEFILE") + 1))"
+    sed -i "${HASH_LINE}s/PKG_HASH:=.*/PKG_HASH:=$FILE_HASH/" "$MAKEFILE"
+
+    # Update UU_MD5SUM line for this arch
+    MD5_LINE=$((HASH_LINE + 1))
+    sed -i "${MD5_LINE}s/UU_MD5SUM:=.*/UU_MD5SUM:=$FILE_MD5/" "$MAKEFILE"
+done
+
+# Update version
+sed -i "s/PKG_VERSION:=.*/PKG_VERSION:=$VERSION/g" "$MAKEFILE"
+
+echo "Makefile updated to version $VERSION"
