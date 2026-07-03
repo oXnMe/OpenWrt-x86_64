@@ -48,3 +48,41 @@ rm -rf packages
 sed -i '$i uci set nlbwmon.@nlbwmon[0].refresh_interval=2s' package/lean/default-settings/files/zzz-default-settings
 sed -i '$i uci commit nlbwmon' package/lean/default-settings/files/zzz-default-settings
 chmod 755 package/luci-app-onliner/root/usr/share/onliner/setnlbw.sh
+
+# bxplug
+BXPLUG_INFO=$(curl -s "https://api.github.com/repos/linkease/istore-repo/contents/bin/packages/x86_64/nas" | grep -o 'bxplug_[^"]*\.ipk' | head -n 1)
+if [ -n "$BXPLUG_INFO" ]; then
+    mkdir -p package/bxplug
+    curl -L -o "package/bxplug/$BXPLUG_INFO" "https://github.com/linkease/istore-repo/raw/refs/heads/main/bin/packages/x86_64/nas/$BXPLUG_INFO"
+    cat << 'EOF' > package/bxplug/Makefile
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=bxplug
+PKG_VERSION:=$(shell ls $(CURDIR) | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[0-9]+)?' | head -n 1)
+PKG_RELEASE:=1
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/bxplug
+  SECTION:=net
+  CATEGORY:=Network
+  TITLE:=iStore bxplug (Binary)
+  DEPENDS:=+uci
+endef
+
+define Package/bxplug/description
+  Precompiled bxplug package from istore-repo.
+endef
+
+define Build/Compile
+endef
+
+define Package/bxplug/install
+	tar -C $(1) -xzf $(CURDIR)/bxplug_$(PKG_VERSION)_x86_64.ipk data.tar.gz
+	tar -C $(1) -xzf $(1)/data.tar.gz
+	rm -f $(1)/data.tar.gz
+endef
+
+$(eval $(call BuildPackage,bxplug))
+EOF
+fi
