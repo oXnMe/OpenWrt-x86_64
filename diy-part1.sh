@@ -78,9 +78,10 @@ define Build/Compile
 endef
 
 define Package/bxplug/install
-	tar -C $(1) -xzf $(CURDIR)/bxplug_$(PKG_VERSION)_x86_64.ipk data.tar.gz
-	tar -C $(1) -xzf $(1)/data.tar.gz
-	rm -f $(1)/data.tar.gz
+	mkdir -p $(PKG_BUILD_DIR)/ipk_tmp
+	tar -C $(PKG_BUILD_DIR)/ipk_tmp -xzf $(CURDIR)/bxplug_$(PKG_VERSION)_x86_64.ipk
+	tar -C $(1) -xzf $(PKG_BUILD_DIR)/ipk_tmp/data.tar.gz
+	rm -rf $(PKG_BUILD_DIR)/ipk_tmp
 endef
 
 $(eval $(call BuildPackage,bxplug))
