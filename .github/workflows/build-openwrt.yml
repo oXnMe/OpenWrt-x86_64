@@ -18,6 +18,31 @@ on:
         description: 'SSH connection to Actions'
         required: false
         default: 'false'
+      bxplug:
+        description: '是否添加 bxplug(BeeconMini)'
+        required: false
+        type: boolean
+        default: true
+      istore:
+        description: '是否添加 istore'
+        required: false
+        type: boolean
+        default: false
+      uugamebooster:
+        description: '是否添加 uugamebooster'
+        required: false
+        type: boolean
+        default: true
+      passwall2:
+        description: '是否添加 passwall2'
+        required: false
+        type: boolean
+        default: true
+      ssrp:
+        description: '是否添加 ssrp'
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: 0 19 * * *
 
@@ -32,6 +57,11 @@ env:
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
+  ENABLE_BXPLUG: ${{ github.event.inputs.bxplug || 'true' }}
+  ENABLE_ISTORE: ${{ github.event.inputs.istore || 'false' }}
+  ENABLE_UUGAMEBOOSTER: ${{ github.event.inputs.uugamebooster || 'true' }}
+  ENABLE_PASSWALL2: ${{ github.event.inputs.passwall2 || 'true' }}
+  ENABLE_SSRP: ${{ github.event.inputs.ssrp || 'false' }}
 
 jobs:
   build:

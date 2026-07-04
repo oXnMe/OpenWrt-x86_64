@@ -10,36 +10,36 @@
 # Description: OpenWrt DIY script part 1 (Before Update feeds)
 #
 
-#sed -i 's/KERNEL_PATCHVER:=5.15/KERNEL_PATCHVER:=5.10/g' ./target/linux/x86/Makefile
+# ssrp
+if [ "$ENABLE_SSRP" = "true" ]; then
+    git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/luci-app-ssr-plus
+fi
 
-# 添加ssrp
-#rm -rf package/helloworld
-#git clone -b master --depth=1 https://github.com/fw876/helloworld.git package/luci-app-ssr-plus
+# passwall2
+if [ "$ENABLE_PASSWALL2" = "true" ]; then
+    git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall2 package/luci-app-passwall2
+fi
 
-# 添加passwall2
-git clone --depth=1 https://github.com/Openwrt-Passwall/openwrt-passwall2 package/luci-app-passwall2
-
-# 替换argon
+# argon
 git clone https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 git clone https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 cp -f $GITHUB_WORKSPACE/images/bg1.jpg package/luci-theme-argon/htdocs/luci-static/argon/img/bg1.jpg
 
-# 替换serverchan
+# serverchan
 git clone https://github.com/tty228/luci-app-wechatpush.git package/luci-app-wechatpush
 
-# 添加oaf
+# openappfilter
 git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter
 
-# 添加lucky
+# lucky
 git clone https://github.com/gdy666/luci-app-lucky.git package/lucky
 
 # iStore
-#echo 'src-git istore https://github.com/linkease/istore;main' >> feeds.conf.default
-git clone https://github.com/linkease/istore-ui
-mv istore-ui/app-store-ui package
-git clone https://github.com/linkease/istore
-mv istore/luci/* package
-rm -rf istore istore-ui
+if [ "$ENABLE_ISTORE" = "true" ]; then
+    git clone https://github.com/linkease/istore
+    mv istore/luci/* package
+    rm -rf istore
+fi
 
 # 在线用户
 git clone https://github.com/haiibo/packages
@@ -50,11 +50,14 @@ sed -i '$i uci commit nlbwmon' package/lean/default-settings/files/zzz-default-s
 chmod 755 package/luci-app-onliner/root/usr/share/onliner/setnlbw.sh
 
 # bxplug
-BXPLUG_INFO=$(curl -s "https://api.github.com/repos/linkease/istore-repo/contents/bin/packages/x86_64/nas" | grep -o 'bxplug_[^"]*\.ipk' | head -n 1)
-if [ -n "$BXPLUG_INFO" ]; then
-    mkdir -p package/bxplug
-    curl -L -o "package/bxplug/$BXPLUG_INFO" "https://github.com/linkease/istore-repo/raw/refs/heads/main/bin/packages/x86_64/nas/$BXPLUG_INFO"
-    cat << 'EOF' > package/bxplug/Makefile
+if [ "$ENABLE_BXPLUG" = "true" ]; then
+    BXPLUG_INFO=$(curl -s "https://api.github.com/repos/linkease/istore-repo/contents/bin/packages/x86_64/nas" | grep -o 'bxplug_[^"]*\.ipk' | head -n 1)
+
+    if [ -n "$BXPLUG_INFO" ]; then
+        mkdir -p package/bxplug
+        curl -L -o "package/bxplug/$BXPLUG_INFO" "https://github.com/linkease/istore-repo/raw/refs/heads/main/bin/packages/x86_64/nas/$BXPLUG_INFO"
+
+        cat << 'EOF' > package/bxplug/Makefile
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=bxplug
@@ -86,4 +89,5 @@ endef
 
 $(eval $(call BuildPackage,bxplug))
 EOF
+    fi
 fi
