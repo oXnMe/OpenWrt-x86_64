@@ -91,3 +91,8 @@ $(eval $(call BuildPackage,bxplug))
 EOF
     fi
 fi
+
+# komari-agent
+if [ "$ENABLE_KOMARI_AGENT" = "true" ]; then
+    git clone https://github.com/oXnMe/openwrt-komari-agent.git package/openwrt-komari-agent
+fi

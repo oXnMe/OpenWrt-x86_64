@@ -43,6 +43,11 @@ on:
         required: false
         type: boolean
         default: false
+      komari-agent:
+        description: '是否添加 komari-agent'
+        required: false
+        type: boolean
+        default: true
   schedule:
     - cron: 0 19 * * *
 
@@ -62,6 +67,7 @@ env:
   ENABLE_UUGAMEBOOSTER: ${{ github.event.inputs.uugamebooster || 'true' }}
   ENABLE_PASSWALL2: ${{ github.event.inputs.passwall2 || 'true' }}
   ENABLE_SSRP: ${{ github.event.inputs.ssrp || 'false' }}
+  ENABLE_KOMARI_AGENT: ${{ github.event.inputs.komari-agent || 'true' }}
 
 jobs:
   build:

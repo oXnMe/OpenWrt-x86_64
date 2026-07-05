@@ -54,6 +54,13 @@ if [ "$ENABLE_BXPLUG" = "true" ]; then
     echo "CONFIG_PACKAGE_bxplug=y" >> .config
 fi
 
+# komari-agent
+if [ "$ENABLE_KOMARI_AGENT" = "true" ]; then
+    echo "CONFIG_PACKAGE_komari-agent=y" >> .config
+    echo "CONFIG_PACKAGE_luci-app-komari-agent=y" >> .config
+    echo "CONFIG_PACKAGE_luci-i18n-komari-agent-zh-cn=y" >> .config
+fi
+
 # 修改默认主题
 sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 
