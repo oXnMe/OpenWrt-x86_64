@@ -173,6 +173,36 @@ if __name__ == "__main__":
     main()
 STRIP_EOF
 
+        cat << 'FIX_EOF' > package/bxplug/fix_libuci.sh
+#!/bin/sh
+set -e
+STAGING_DIR="$1"
+STAGING_DIR_HOST="$2"
+PKG_DIR="$3"
+
+UCI=""
+for d in "$STAGING_DIR/usr/lib" "$STAGING_DIR/lib" "$STAGING_DIR_HOST/usr/lib"; do
+    for f in "$d"/libuci.so.[0-9]*; do
+        if [ -f "$f" ]; then
+            UCI="$f"
+            break 2
+        fi
+    done
+done
+
+if [ -z "$UCI" ]; then
+    echo "fix_libuci: WARN versioned libuci.so.* not found under staging"
+    echo "fix_libuci: build fix relies on extra_provides; runtime libuci.so NOT shipped"
+    exit 0
+fi
+
+SON=$(basename "$UCI")
+mkdir -p "$PKG_DIR/usr/lib"
+ln -sf "/lib/$SON" "$PKG_DIR/usr/lib/libuci.so"
+echo "fix_libuci: ship usr/lib/libuci.so -> /lib/$SON"
+echo "fix_libuci: done"
+FIX_EOF
+
         cat << 'EOF' > package/bxplug/Makefile
 include $(TOPDIR)/rules.mk
 
@@ -186,11 +216,15 @@ define Package/bxplug
   SECTION:=net
   CATEGORY:=Network
   TITLE:=iStore bxplug (Binary, ads stripped)
-  DEPENDS:=+uci
+  DEPENDS:=+libuci
 endef
 
 define Package/bxplug/description
   Precompiled bxplug package from istore-repo, with promotional ads removed at build time.
+endef
+
+define Package/bxplug/extra_provides
+echo "libuci.so"
 endef
 
 define Build/Compile
@@ -201,6 +235,7 @@ define Package/bxplug/install
 	tar -C $(PKG_BUILD_DIR)/ipk_tmp -xzf $(CURDIR)/bxplug_$(PKG_VERSION)_x86_64.ipk
 	tar -C $(1) -xzf $(PKG_BUILD_DIR)/ipk_tmp/data.tar.gz
 	python3 $(CURDIR)/strip_ads.py $(1)
+	sh $(CURDIR)/fix_libuci.sh $(STAGING_DIR) $(STAGING_DIR_HOST) $(1)
 	rm -rf $(PKG_BUILD_DIR)/ipk_tmp
 endef
 
