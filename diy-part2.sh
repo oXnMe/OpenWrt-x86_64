@@ -84,3 +84,38 @@ sed -i 's/os.date()/os.date("%a %Y-%m-%d %H:%M:%S")/g' package/lean/autocore/fil
 date_version=$(date +"%y.%m.%d")
 orig_version=$(cat "package/lean/default-settings/files/zzz-default-settings" | grep DISTRIB_REVISION= | awk -F "'" '{print $2}')
 sed -i "s/${orig_version}/R${date_version} by Ellison/g" package/lean/default-settings/files/zzz-default-settings
+
+# ---- xray-core 版本守卫 ----
+# 上游 coolsnowwolf/packages 偶尔会把 PKG_VERSION 写成一个 Xray-core 仓库里
+# 根本不存在的 tag（2026-10-30 的 26.10.29 就是：tag 只有 …v26.10.21 / v26.10.31），
+# 导致 PKG_SOURCE_URL 返回 404，构建在 xray-core 上反复重试几十分钟后失败。
+# 这里校验 tag 是否存在：缺失则改用"下一个真实存在的更高版本"，并重算 PKG_HASH。
+# 注意不能往回退版本：补丁栈是按新版本 go.sum 刷新的，旧版本反而打不上。
+XRAY_MK="feeds/packages/net/xray-core/Makefile"
+if [ -f "$XRAY_MK" ]; then
+    XRAY_VER="$(sed -n 's/^PKG_VERSION:=//p' "$XRAY_MK" | head -n 1 | tr -d '[:space:]')"
+    if [ -n "$XRAY_VER" ] && [ -z "$(git ls-remote --tags --refs https://github.com/XTLS/Xray-core "refs/tags/v$XRAY_VER")" ]; then
+        echo "[xray-core] v$XRAY_VER 在 XTLS/Xray-core 不存在，开始修正"
+        XRAY_TAGS="$(git ls-remote --tags --refs https://github.com/XTLS/Xray-core 'refs/tags/v*' \
+            | sed 's#.*refs/tags/v##' | grep -E '^[0-9]+(\.[0-9]+){2}$' | sort -V)"
+        XRAY_FIX="$(printf '%s\n' "$XRAY_TAGS" | while read -r t; do
+            [ "$t" = "$XRAY_VER" ] && continue
+            if [ "$(printf '%s\n%s\n' "$XRAY_VER" "$t" | sort -V | tail -n 1)" = "$t" ]; then
+                echo "$t"; break
+            fi
+        done)"
+        [ -n "$XRAY_FIX" ] || XRAY_FIX="$(printf '%s\n' "$XRAY_TAGS" | tail -n 1)"
+        if [ -n "$XRAY_FIX" ]; then
+            XRAY_TMP="$(mktemp)"
+            if curl -fsSL "https://codeload.github.com/XTLS/Xray-core/tar.gz/v$XRAY_FIX?" -o "$XRAY_TMP"; then
+                XRAY_HASH="$(sha256sum "$XRAY_TMP" | awk '{print $1}')"
+                sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$XRAY_FIX/" "$XRAY_MK"
+                sed -i "s/^PKG_HASH:=.*/PKG_HASH:=$XRAY_HASH/" "$XRAY_MK"
+                echo "[xray-core] 已改用 v$XRAY_FIX (sha256=$XRAY_HASH)"
+            else
+                echo "[xray-core] 下载 v$XRAY_FIX 源码失败，保持原版本（构建可能因此失败）"
+            fi
+            rm -f "$XRAY_TMP"
+        fi
+    fi
+fi

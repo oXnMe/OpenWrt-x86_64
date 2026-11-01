@@ -100,7 +100,7 @@ jobs:
       with:
         # this might remove tools that are actually needed,
         # if set to "true" but frees about 6 GB
-        tool-cache: true
+        preinstalled-runtimes: true
         # all of these default to true, but feel free to set to
         # "false" if necessary for your workflow
         android: true
@@ -161,7 +161,15 @@ jobs:
       run: |
         cd openwrt
         make defconfig
-        make download -j8
+        # make download 在 -j 并行模式下即使有源码包 404 也可能返回 0，
+        # 之前因此把问题拖进编译阶段，白烧一小时。这里显式拦截。
+        set -o pipefail
+        make download -j$(nproc) 2>&1 | tee download.log || true
+        if grep -q "Download failed" download.log; then
+          echo "::error::源码包下载失败，提前终止"
+          grep -B3 "Download failed" download.log | tail -n 30
+          exit 1
+        fi
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
@@ -170,7 +178,8 @@ jobs:
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
+        # 只保留一次详细重试，避免同一个错误连跑三遍浪费一小时
+        make -j$(nproc) || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
@@ -216,7 +225,7 @@ jobs:
         echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Upload firmware to release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       if: steps.organize.outputs.status == 'success' && steps.tag.outputs.status == 'success' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
