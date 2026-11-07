@@ -121,6 +121,10 @@ jobs:
         DEBIAN_FRONTEND: noninteractive
         # 关键：让 needrestart 只列出、不重启服务。见下方说明。
         NEEDRESTART_MODE: l
+        # 终极开关：整个 apt 事务里彻底禁用 needrestart。因为 Ubuntu 24.04 的
+        # /etc/apt/apt.conf.d/99needrestart 可能带 -m u 参数强制自动模式，
+        # 命令行参数会盖掉 conf.d 里的 restart 设置。SUSPEND 优先于两者。
+        NEEDRESTART_SUSPEND: "1"
       run: |
         # Ubuntu 24.04 的 needrestart 默认是自动重启模式。apt 装完这一大堆依赖后，
         # 它会把 systemd-networkd / systemd-resolved / systemd-journald 一起重启，
