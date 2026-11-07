@@ -109,7 +109,12 @@ jobs:
         dotnet: true
         haskell: true
         large-packages: true
-        swap-storage: true
+        # 必须为 false：true 会 swapoff -a 并删掉 /mnt/swapfile，让 runner 失去
+        # 4GB swap 兜底。make -j4 编 Go/C++ 包并打包 700MB rootfs 时内存峰值一旦
+        # 越界，OOM 会直接杀掉 runner agent，表现为「lost communication with the
+        # server」且日志里没有任何报错（2026-11-05 #1283、11-06 #1284 即此原因）。
+        # 代价是少 4GB 磁盘；磁盘不够会明确报 No space left，比静默猝死好排查。
+        swap-storage: false
 
     - name: Initialization environment
       env:
