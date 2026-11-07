@@ -1,0 +1,31 @@
+name: Retry failed build
+
+# 兜底：GitHub 托管 runner 偶发「lost communication with the server」这类平台抖动
+# （2026-11-05 #1283、11-06 #1284、11-07 #1285 均为此），与本仓库代码无关，
+# 重跑一次基本都能过。
+# 只重试第一次尝试（run_attempt == 1），避免失败-重试无限循环。
+# 本仓库为 public，Actions 分钟数不计费，重试不产生额外成本。
+
+on:
+  workflow_run:
+    workflows: ["Build OpenWrt x86_64"]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  retry:
+    if: |
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Re-run failed build once
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          echo "重试失败的运行 #${{ github.event.workflow_run.run_number }} (id=$RUN_ID)"
+          gh run rerun "$RUN_ID" --failed --repo "${{ github.repository }}"

@@ -120,8 +120,10 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        sudo -E apt-get -qq update
-        sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+        # 加超时保护：镜像源卡死时 apt 会无限重试，2026-11-07 #1285 就在这一步
+        # 卡了 68 分钟后 runner 失联。超时后立即失败，避免白白占着 runner。
+        sudo -E timeout 300 apt-get -qq update || { echo "::error::apt update 超时或失败"; exit 1; }
+        sudo -E timeout 1500 apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev || { echo "::error::apt install 超时或失败"; exit 1; }
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -185,8 +187,21 @@ jobs:
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
+        # 心跳：每 5 分钟打一次磁盘/内存/时间戳。runner 静默失联时日志会突然断掉，
+        # 有了这些采样就能判断死亡瞬间是磁盘满、内存耗尽，还是纯粹被回收。
+        ( while sleep 300; do
+            echo "---- heartbeat $(date -u +%H:%M:%S) ----"
+            df -h / /mnt 2>/dev/null | tail -n +1
+            free -h | head -2
+          done ) &
+        WATCHDOG=$!
         # 只保留一次详细重试，避免同一个错误连跑三遍浪费一小时
+        set +e
         make -j$(nproc) || make -j1 V=s
+        MAKE_RC=$?
+        set -e
+        kill $WATCHDOG 2>/dev/null || true
+        [ "$MAKE_RC" -eq 0 ] || exit "$MAKE_RC"
         echo "status=success" >> $GITHUB_OUTPUT
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
