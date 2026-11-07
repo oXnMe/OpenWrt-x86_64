@@ -126,6 +126,10 @@ jobs:
         # 命令行参数会盖掉 conf.d 里的 restart 设置。SUSPEND 优先于两者。
         NEEDRESTART_SUSPEND: "1"
       run: |
+        # 打开命令回显。这步已经连续多次「无输出卡死」，而 apt 的 -qq 参数会把
+        # 进度全部吞掉，导致日志看起来停在原地、无法判断卡在哪条命令。
+        # set -x 会逐条回显正在执行的命令，下次一眼就能定位。
+        set -x
         # Ubuntu 24.04 的 needrestart 默认是自动重启模式。apt 装完这一大堆依赖后，
         # 它会把 systemd-networkd / systemd-resolved / systemd-journald 一起重启，
         # runner agent 到 GitHub 的长连接随即断开，平台报 "hosted runner lost
@@ -142,9 +146,12 @@ jobs:
         # 卡了 68 分钟后 runner 失联。超时后立即失败，避免白白占着 runner。
         sudo -E timeout 300 apt-get -qq update || { echo "::error::apt update 超时或失败"; exit 1; }
         sudo -E timeout 1500 apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev || { echo "::error::apt install 超时或失败"; exit 1; }
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
+        # autoremove 只是清理孤儿包，不承担构建职责：超时就跳过，不要卡死在这里。
+        # 历史上这里出现过长时间零输出（-qq 抑制了所有进度）。
+        sudo -E timeout 600 apt-get -qq autoremove --purge || echo "::warning::autoremove 超时或失败，已跳过"
+        sudo -E timeout 300 apt-get -qq clean || true
+        # timedatectl 需要 dbus 上的 systemd-timedated 响应，那个服务异常时会无限等待
+        sudo -E timeout 60 timedatectl set-timezone "$TZ" || echo "::warning::设置时区失败，继续"
         sudo mkdir -p /mnt/workdir
         sudo chown $USER:$GROUPS /mnt/workdir
 
