@@ -119,7 +119,21 @@ jobs:
     - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
+        # 关键：让 needrestart 只列出、不重启服务。见下方说明。
+        NEEDRESTART_MODE: l
       run: |
+        # Ubuntu 24.04 的 needrestart 默认是自动重启模式。apt 装完这一大堆依赖后，
+        # 它会把 systemd-networkd / systemd-resolved / systemd-journald 一起重启，
+        # runner agent 到 GitHub 的长连接随即断开，平台报 "hosted runner lost
+        # communication with the server"，且日志因 journald 重启而来不及上传
+        # （2026-11-07 #1285 就是这么死的，日志档案是个 22 字节的空 zip）。
+        # 这里改成 list 模式，并额外把关键服务加入永不重启名单，双保险。
+        sudo mkdir -p /etc/needrestart/conf.d
+        printf '%s\n%s\n' \
+          '$nrconf{restart} = "l";' \
+          '$nrconf{override_rc}{qr(^(systemd-networkd|systemd-resolved|systemd-logind|systemd-journald|dbus|ssh)$)} = 0;' \
+          | sudo tee /etc/needrestart/conf.d/99-actions-no-restart.conf > /dev/null
+        cat /etc/needrestart/conf.d/99-actions-no-restart.conf
         # 加超时保护：镜像源卡死时 apt 会无限重试，2026-11-07 #1285 就在这一步
         # 卡了 68 分钟后 runner 失联。超时后立即失败，避免白白占着 runner。
         sudo -E timeout 300 apt-get -qq update || { echo "::error::apt update 超时或失败"; exit 1; }
