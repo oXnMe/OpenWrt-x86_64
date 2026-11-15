@@ -209,8 +209,26 @@ jobs:
         make defconfig
         # make download 在 -j 并行模式下即使有源码包 404 也可能返回 0，
         # 之前因此把问题拖进编译阶段，白烧一小时。这里显式拦截。
+        #
+        # 超时保护（2026-11-15 因 #43688890623 而加）：那次 runner 到源站的网络
+        # 卡死，toolchain 下载先吃掉 76 分钟，随后停在 util-linux 彻底静默 4 小时
+        # 29 分，一直挂到 6 小时 job 上限被平台取消，编译一步都没开始 —— 而正常
+        # 情况下这步只要 2-8 分钟（同日两次成功构建分别是 2 分钟和 8 分钟）。
+        # 要害在于：卡死不是「失败」，是永远不返回，原来只 grep "Download failed"
+        # 的检查根本够不着；而超时取消的结论是 cancelled 而非 failure，自动重试
+        # 流程也不接。所以这里把卡死转换成明确的失败退出码，让重试能接住。
+        # 40 分钟的依据：正常 2-8 分钟；11-15 异常时仅 toolchain 一段就 76 分钟，
+        # 一旦开始异常必然超过 40 分钟，不会误杀正常构建。
+        # pipefail 必须保留，否则超时态会被 tee 的 0 退出码盖掉。
         set -o pipefail
-        make download -j$(nproc) 2>&1 | tee download.log || true
+        set +e
+        timeout -k 60 2400 make download -j$(nproc) 2>&1 | tee download.log
+        DL_RC=$?
+        set -e
+        if [ "$DL_RC" -eq 124 ] || [ "$DL_RC" -eq 137 ]; then
+          echo "::error::下载超时（40 分钟无进展），判定为网络卡死"
+          exit 1
+        fi
         if grep -q "Download failed" download.log; then
           echo "::error::源码包下载失败，提前终止"
           grep -B3 "Download failed" download.log | tail -n 30
