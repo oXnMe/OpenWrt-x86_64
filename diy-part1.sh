@@ -59,8 +59,39 @@ if [ "$ENABLE_BXPLUG" = "true" ]; then
 
         cat << 'STRIP_EOF' > package/bxplug/strip_ads.py
 import os
-import re
 import sys
+
+
+def strip_ready_block(html):
+    marker = "$(document).ready("
+    start = html.find(marker)
+    if start < 0:
+        return html
+    brace_open = html.find("{", start)
+    if brace_open < 0:
+        return html
+    depth = 0
+    i = brace_open
+    while i < len(html):
+        ch = html[i]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                j = i + 1
+                while j < len(html) and html[j] in " \t":
+                    j += 1
+                if j < len(html) and html[j] == ")":
+                    j += 1
+                while j < len(html) and html[j] in " \t":
+                    j += 1
+                if j < len(html) and html[j] == ";":
+                    j += 1
+                line_start = html.rfind("\n", 0, start) + 1
+                return html[:line_start] + html[j:]
+        i += 1
+    return html
 
 
 def strip_index_html(path):
@@ -96,8 +127,7 @@ def strip_index_html(path):
         if closed > 0:
             html = html[:start] + html[closed:]
 
-    ready_pat = re.compile(r"\n[ \t]*\$\(document\)\.ready\(function \(\) \{.*?\n[ \t]*\}\);\n", re.S)
-    html = ready_pat.sub("\n", html)
+    html = strip_ready_block(html)
 
     html = html.replace("https://cloud.beeconx.com.cn/api/ocean/materialPlatform/materialFile/getCurrentPluginAdBannerImage", "")
     html = html.replace("<%:【淘宝店】%>", "")
