@@ -282,9 +282,14 @@ jobs:
             free -h | head -2
           done ) &
         WATCHDOG=$!
-        # 只保留一次详细重试，避免同一个错误连跑三遍浪费一小时
+        # 编译策略：-j 并行容易撞上工具链的并行 race（实测 tools/elfutils 在 -j4 下
+        # 报 failed to build，重跑一次就过），所以给 -j 两次机会，最后才退到单线程。
+        # 2026-11-14 的两次构建（43532225888 用 152 分钟、43650287281 用 197 分钟）
+        # 就是只给一次机会：一撞 race 立刻掉进 make -j1 V=s，日志里 2.7 万行详细
+        # 编译命令，比正常 62 分钟多花两小时。而重试 -j 是断点续编，只补失败包和
+        # 下游，代价通常十分钟量级 —— 用十分钟换两小时，值得。
         set +e
-        make -j$(nproc) || make -j1 V=s
+        make -j$(nproc) || make -j$(nproc) || make -j1 V=s
         MAKE_RC=$?
         set -e
         kill $WATCHDOG 2>/dev/null || true
