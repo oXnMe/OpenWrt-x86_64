@@ -153,12 +153,46 @@ jobs:
           '$nrconf{override_rc}{qr(^(systemd-networkd|systemd-resolved|systemd-logind|systemd-journald|dbus|ssh)$)} = 0;' \
           | sudo tee /etc/needrestart/conf.d/99-actions-no-restart.conf > /dev/null
         cat /etc/needrestart/conf.d/99-actions-no-restart.conf
-        # 超时保护：镜像源卡死时 apt 会无限重试，而 -qq 把进度全部吞掉，表现
-        # 就是「零输出挂着」。实测正常情况下整个 Init 步骤只需 139 秒
-        # （#1287 attempt 2：06:49:19 → 06:51:38），下面的额度已极宽松，
-        # 全部超时最坏也只耗约 21 分钟就失败退出，让自动重试早点接手。
-        sudo -E timeout 300 apt-get -qq update || { echo "::error::apt update 超时或失败"; exit 1; }
-        sudo -E timeout 600 apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev || { echo "::error::apt install 超时或失败"; exit 1; }
+        # apt 超时与重试（2026-11-24 改）：原来 install 给 600 秒。实测正常整个
+        # Init 只要 135–139 秒（11-21、11-23 两次成功构建），但 11-24 镜像源突然
+        # 变慢，install 撞满 600 秒被杀，两次尝试（12:10 / 12:24）倒在同一个闸门上，
+        # 当天构建直接报废。所以额度翻倍到 1200 秒，并加一次重试 —— apt install
+        # 是增量的，第一次已装好的包第二次不会重装，重试能接着往下走。
+        #
+        # 另外给 Acquire 加停滞超时和重试：单个包卡在 TCP 上不动会把整个 1200 秒
+        # 预算耗光，改成 30 秒无数据即重连，把「卡死」变成「换连接继续」。
+        #
+        # install 详细程度从 -qq 降到 -q：-qq 会把 Get/Unpacking 全吞掉，卡住时
+        # 日志里只剩一行命令、一个耗时，完全无法判断卡在哪个包 —— 11-24 的两次
+        # 失败就是这样，只有 661 秒这一个线索。
+        APT_OPTS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+        APT_PKGS="ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev"
+        sudo -E timeout 300 apt-get -q "${APT_OPTS[@]}" update || { echo "::error::apt update 超时或失败"; exit 1; }
+        APT_OK=0
+        for APT_I in 1 2; do
+          echo "===== apt install attempt $APT_I/2 ====="
+          set +e
+          sudo -E timeout 1200 apt-get -q "${APT_OPTS[@]}" install $APT_PKGS
+          APT_RC=$?
+          set -e
+          if [ "$APT_RC" -eq 0 ]; then
+            APT_OK=1
+            break
+          fi
+          if [ "$APT_RC" -eq 124 ] || [ "$APT_RC" -eq 137 ]; then
+            echo "::warning::第 $APT_I 次 apt install 超时（1200s），镜像源可能变慢"
+          else
+            echo "::warning::第 $APT_I 次 apt install 失败（rc=$APT_RC）"
+          fi
+          if [ "$APT_I" -lt 2 ]; then
+            echo "===== 10 秒后重试，已装好的包不会重装 ====="
+            sleep 10
+          fi
+        done
+        if [ "$APT_OK" -ne 1 ]; then
+          echo "::error::apt install 两次尝试均失败"
+          exit 1
+        fi
         # autoremove 只是清理孤儿包，不承担构建职责：超时就跳过，不要卡死在这里。
         sudo -E timeout 180 apt-get -qq autoremove --purge || echo "::warning::autoremove 超时或失败，已跳过"
         sudo -E timeout 120 apt-get -qq clean || true
@@ -312,7 +346,10 @@ jobs:
 
     - name: Organize files
       id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      # 必须挂在 compile 成功之后：编译被跳过时 bin/targets 不存在，cd 会失败，
+      # 于是前面已经失败了的构建上再多亮一个红叉（2026-11-24 两次尝试就是这样），
+      # 掩盖真正的失败点。
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         cd openwrt/bin/targets/*/*
         rm -rf openwrt-x86-64-generic-kernel.bin openwrt-x86-64-generic-squashfs-rootfs.img.gz packages feeds.buildinfo version.buildinfo
