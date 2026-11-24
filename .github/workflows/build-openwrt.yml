@@ -153,11 +153,11 @@ jobs:
           '$nrconf{override_rc}{qr(^(systemd-networkd|systemd-resolved|systemd-logind|systemd-journald|dbus|ssh)$)} = 0;' \
           | sudo tee /etc/needrestart/conf.d/99-actions-no-restart.conf > /dev/null
         cat /etc/needrestart/conf.d/99-actions-no-restart.conf
-        # apt 超时与重试（2026-11-24 改）：原来 install 给 600 秒。实测正常整个
-        # Init 只要 135–139 秒（11-21、11-23 两次成功构建），但 11-24 镜像源突然
-        # 变慢，install 撞满 600 秒被杀，两次尝试（12:10 / 12:24）倒在同一个闸门上，
-        # 当天构建直接报废。所以额度翻倍到 1200 秒，并加一次重试 —— apt install
-        # 是增量的，第一次已装好的包第二次不会重装，重试能接着往下走。
+        # apt 超时与重试：原来 install 给 600 秒。正常整个 Init 只要 135–139 秒
+        # （11-21、11-23 两次成功构建），11-24 却撞满 600 秒被杀，当天两次自动
+        # 重试都倒在同一个闸门上。真正的病因见下面换镜像那段 —— 加速之后的
+        # 1200 秒 × 2 只是兜底，用来在镜像再次劣化时给出明确失败而不是无限等待。
+        # apt install 是增量的：第一次已装好的包第二次不会重装，重试能接着往下走。
         #
         # 另外给 Acquire 加停滞超时和重试：单个包卡在 TCP 上不动会把整个 1200 秒
         # 预算耗光，改成 30 秒无数据即重连，把「卡死」变成「换连接继续」。
@@ -167,6 +167,18 @@ jobs:
         # 失败就是这样，只有 661 秒这一个线索。
         APT_OPTS=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
         APT_PKGS="ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler fastjar flex gawk gettext gcc-multilib g++-multilib git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool lrzsz mkisofs msmtp ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev"
+        # 换掉 apt 默认镜像的优先级顺序（2026-11-24 实测定位，不是推测）。
+        # runner 镜像把 /etc/apt/apt-mirrors.txt 的 priority:1 写死成
+        # us-east-2.ec2.archive.ubuntu.com，而它当时只有 11 kB/s：79MB 的
+        # texlive-bibtex-extra 跑满 20 秒只下了 225KB。同一时刻同一个文件，
+        # archive.ubuntu.com 用 0.16 秒下完，azure.archive.ubuntu.com 0.75 秒，
+        # mirrors.edge.kernel.org 5.8 秒。这次 install 要下 724MB，按 11 kB/s
+        # 需要一小时以上 —— 1200 秒的额度再怎么调都不够，所以必须换源，
+        # 而不是继续加超时（加到 3600 秒只会把构建拖成 3 小时）。
+        # 保留 mirror+file 机制不变（apt 仍会在出错时按 priority 回退），
+        # 只把快的镜像排到前面。注意 printf 的格式串里必须是真 Tab。
+        printf 'http://archive.ubuntu.com/ubuntu/\tpriority:1\nhttp://azure.archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+        cat /etc/apt/apt-mirrors.txt
         sudo -E timeout 300 apt-get -q "${APT_OPTS[@]}" update || { echo "::error::apt update 超时或失败"; exit 1; }
         APT_OK=0
         for APT_I in 1 2; do
