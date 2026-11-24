@@ -9,26 +9,33 @@ jobs:
   probe:
     runs-on: ubuntu-24.04
     steps:
-      - name: Show current apt mirror config
+      - name: Current apt mirror config
         run: |
-          echo "=== /etc/apt/apt-mirrors.txt ==="
           cat /etc/apt/apt-mirrors.txt 2>/dev/null || echo "(none)"
-          echo "=== deb lines ==="
-          grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -10 || echo "(none)"
-          echo "=== ubuntu.sources ==="
-          cat /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null | head -20 || true
 
-      - name: Probe mirror throughput
+      - name: Resolve real package URLs
         run: |
-          F="pool/universe/t/texlive-bibtex-extra/texlive-bibtex-extra_2023.20240207-1_all.deb"
+          sudo apt-get update -qq
+          sudo apt-get -y --print-uris install texlive-bibtex-extra texlive-luatex lmodern 2>/dev/null \
+            | awk -F"'" '/^\x27http/{print $4, $2}' | sort -rn | head -5 \
+            | tee /tmp/top.txt
+          echo "=== total ==="
+          sudo apt-get -y --print-uris install texlive-bibtex-extra texlive-luatex lmodern 2>/dev/null \
+            | awk -F"'" '/^\x27http/{s+=$4} END{print s/1048576 " MB"}'
+
+      - name: Probe throughput on top file
+        run: |
+          P=$(head -1 /tmp/top.txt | awk '{print $2}' | sed 's|^http://[^/]*||')
+          echo "path: $P"
           for m in \
             http://us-east-2.ec2.archive.ubuntu.com/ubuntu \
             http://azure.archive.ubuntu.com/ubuntu \
             http://archive.ubuntu.com/ubuntu \
             http://mirrors.edge.kernel.org/ubuntu \
-            http://mirrors.aliyun.com/ubuntu ; do
+            http://mirrors.aliyun.com/ubuntu \
+            http://mirrors.tuna.tsinghua.edu.cn/ubuntu ; do
             echo "=== $m ==="
-            curl -sS -o /dev/null --max-time 30 \
+            curl -sS -o /dev/null --max-time 20 \
               -w 'code=%{http_code} bytes=%{size_download} speed=%{speed_download} time=%{time_total}\n' \
-              "$m/$F" 2>&1 || echo "CURL_FAILED"
+              "$m$P" 2>&1 || echo "CURL_FAILED"
           done
