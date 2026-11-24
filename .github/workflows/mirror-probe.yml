@@ -9,23 +9,26 @@ jobs:
   probe:
     runs-on: ubuntu-24.04
     steps:
-      - name: Current apt mirror config
-        run: |
-          cat /etc/apt/apt-mirrors.txt 2>/dev/null || echo "(none)"
-
-      - name: Resolve real package URLs
+      - name: Resolve real package URLs and sizes
         run: |
           sudo apt-get update -qq
           sudo apt-get -y --print-uris install texlive-bibtex-extra texlive-luatex lmodern 2>/dev/null \
-            | awk -F"'" '/^\x27http/{print $4, $2}' | sort -rn | head -5 \
-            | tee /tmp/top.txt
-          echo "=== total ==="
-          sudo apt-get -y --print-uris install texlive-bibtex-extra texlive-luatex lmodern 2>/dev/null \
-            | awk -F"'" '/^\x27http/{s+=$4} END{print s/1048576 " MB"}'
+            | python3 -c "
+          import sys, re
+          rows = []
+          for line in sys.stdin:
+              m = re.match(r\"'([^']+)'\s+(\S+)\s+(\d+)\", line)
+              if m:
+                  rows.append((int(m.group(3)), m.group(1)))
+          rows.sort(reverse=True)
+          for size, url in rows[:3]:
+              print(size, url)
+          print('TOTAL_MB', sum(s for s, _ in rows) // 1048576)
+          " | tee /tmp/top.txt
 
-      - name: Probe throughput on top file
+      - name: Probe throughput on the largest file
         run: |
-          P=$(head -1 /tmp/top.txt | awk '{print $2}' | sed 's|^http://[^/]*||')
+          P=$(head -1 /tmp/top.txt | awk '{print $2}' | sed 's|^https\?://[^/]*||')
           echo "path: $P"
           for m in \
             http://us-east-2.ec2.archive.ubuntu.com/ubuntu \
@@ -35,7 +38,7 @@ jobs:
             http://mirrors.aliyun.com/ubuntu \
             http://mirrors.tuna.tsinghua.edu.cn/ubuntu ; do
             echo "=== $m ==="
-            curl -sS -o /dev/null --max-time 20 \
-              -w 'code=%{http_code} bytes=%{size_download} speed=%{speed_download} time=%{time_total}\n' \
-              "$m$P" 2>&1 || echo "CURL_FAILED"
+            curl -sSL -o /dev/null --max-time 20 \
+              -w 'code=%{http_code} bytes=%{size_download} speed_kBps=%{speed_download} time=%{time_total}\n' \
+              "$m$P" 2>&1 | sed 's/\(speed_kBps=[0-9]*\)\([0-9]\{3\}\)/\1.\2/' || echo "CURL_FAILED"
           done
