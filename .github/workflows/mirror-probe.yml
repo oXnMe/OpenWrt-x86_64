@@ -28,7 +28,7 @@ jobs:
 
       - name: Probe throughput on the largest file
         run: |
-          P=$(head -1 /tmp/top.txt | awk '{print $2}' | sed 's|^https\?://[^/]*||')
+          P=$(head -1 /tmp/top.txt | awk '{print $2}' | sed 's|.*\(/pool/.*\)|\1|')
           echo "path: $P"
           for m in \
             http://us-east-2.ec2.archive.ubuntu.com/ubuntu \
