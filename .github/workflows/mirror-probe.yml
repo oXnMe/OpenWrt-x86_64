@@ -1,0 +1,34 @@
+name: Mirror probe
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Show current apt mirror config
+        run: |
+          echo "=== /etc/apt/apt-mirrors.txt ==="
+          cat /etc/apt/apt-mirrors.txt 2>/dev/null || echo "(none)"
+          echo "=== deb lines ==="
+          grep -rh "^deb " /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | head -10 || echo "(none)"
+          echo "=== ubuntu.sources ==="
+          cat /etc/apt/sources.list.d/ubuntu.sources 2>/dev/null | head -20 || true
+
+      - name: Probe mirror throughput
+        run: |
+          F="pool/universe/t/texlive-bibtex-extra/texlive-bibtex-extra_2023.20240207-1_all.deb"
+          for m in \
+            http://us-east-2.ec2.archive.ubuntu.com/ubuntu \
+            http://azure.archive.ubuntu.com/ubuntu \
+            http://archive.ubuntu.com/ubuntu \
+            http://mirrors.edge.kernel.org/ubuntu \
+            http://mirrors.aliyun.com/ubuntu ; do
+            echo "=== $m ==="
+            curl -sS -o /dev/null --max-time 30 \
+              -w 'code=%{http_code} bytes=%{size_download} speed=%{speed_download} time=%{time_total}\n' \
+              "$m/$F" 2>&1 || echo "CURL_FAILED"
+          done
